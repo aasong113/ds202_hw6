@@ -1,0 +1,118 @@
+---
+title: Top Dogs HW 6
+authors: Anthony Song
+Github: aasong113
+---
+Anthony Song, 4/22/2020
+```{r}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+```
+
+
+In this homework, you will try to reproduce the fantastic infographic for [top dogs](https://informationisbeautiful.net/visualizations/best-in-show-whats-the-top-data-dog/), originally produced by David McCandless. The raw data can be found [here](https://docs.google.com/spreadsheets/d/1l_HfF5EaN-QgnLc2UYdCc7L2CVrk0p3VdGB1godOyhk/edit#gid=10). You can download this file by File -- Download As -- Microsoft Excel (.xlsx).
+
+
+
+**Submission instructions**: Create a folder named `ds202_hw6`, and name the RMarkDown file including your solutions `hw6.Rmd` under this folder. For the submission, create a GitHub repository named `ds202_hw6` under your GitHub account, and push both `hw6.Rmd` and the knitted `hw6.html` before the deadline. I will assume you use the same GitHub username as for your HW5 submission. The latest version of your homework appearing on GitHub before the deadline is graded. *It is crucial to follow the exact folder structure and file names*, so that your homework can be reproduced and graded by an automated script. This homework is **due on April 22** before class.
+
+#1. Import the data and clean appropriately. To read in the data, you can use `readxl::read_xlsx('fileNameHere', sheet='sheetNameHere')`. Required data are in the sheets `Best in show` and `Best in show full sheet`. Take extra care o the column names and the first few rows of the data frame after read in.
+
+# Some rows species are ommitted from the original data set, due to some import problems. 
+```{r}
+dat1 <- readxl::read_xlsx('KIB_Best _in_Show.xlsx', sheet = 'Best in show')
+
+dat_full <- readxl::read_xlsx('KIB_Best _in_Show.xlsx', sheet = 'Best in show full sheet')
+```
+
+Remove first few rows
+```{r}
+dat1 <- dat1[7:length(dat1),]
+full <- dat_full[4:length(dat_full),]
+```
+
+Clean data for "full"
+```{r}
+#drop columns with unusefull data
+drops1 <- c("...2","...4","...10","...25","...31","...37","...38","...39","...40","...47","...48","...49","...62","...72", "...73","...74","...75","87","..9","80", "...14", "9","...16","...18", "...20","...22","3...23","...24","...27","...28","...29","...30","...34","...36", "...44", "...45","...46","...51","...52", "...54","...55","...57", "...58","...60","...63","...64","...65","...66","...67","...68","...69","...70","...71")
+full <- full[ , !(names(full) %in% drops1)]
+
+#rename column names 
+full <- full %>% 
+  rename(Species = 'Best in show?', Category = 'largest value', Datadog_score = "...5", Popularity_rank1 = "160", lifetime_cost1 = "26686.0",longevity_years1 = "16.5", mean_dollars1 = "2680", food_dollars1 = "1348.657931", Ultimate_top_dog_score = "...26", size1 = "...32", weight = "...33",shoulder ="...35", intelligence = "...41", repititions_to = "...42", lifetime_cost = "21171.07253", budget = "...53", food_per_day = "...56",food_per_week_dollars1 = "...59", lifetime_food_costs1 = "...61", grooms_per_day = "3...21" )
+
+```
+Clean data for "Dat1"
+```{r}
+#drop columns with unusefull data.
+drops <- c("...2","...3","...4","...6","...8","...13","...16","...20","...22","...42","...45","...51","...53","...54","...55", "...52", "...11", "...15","...18","...19", "...34","...35", "...41", "...48", "...50")
+dat1 <- dat1[ , !(names(dat1) %in% drops)]
+# rename columns. 
+dat1 <- dat1 %>% 
+  rename(
+  Category = ...5, Popularity = ...7, Intelligence_1 = ...9, Intelligence_q = ...10, Obey_first = ...12, Life_expectancy = ...14, diseases = ...17, cuteness = ...21, total_cost = ...23, average = ...24, price = ...25, lowest = ...26, highest = ...27, food_per_day = ...28, min_food_price = ...29, max_food_price = ...30, food_convert = ...31, food_per_week = ...32, total_per = ...33, toys = ...36, pet_sitter = ...37, grooming = ...38, vets_fee = ...39, kennel = ...40, grooming_time = ...43, okay_for_children = ...44, dog_size = ...46, weight = ...47, shoulder = ...49
+    )
+```
+
+
+#2. Create a graphics similar to the  [top dogs](https://informationisbeautiful.net/visualizations/best-in-show-whats-the-top-data-dog/) figure. Your figure needs to display the following information with appropriate plotting elements:
+
+
+From the cleaning, the data that is best for the graphing will be "full"
+```{r}
+graph <- select(full, Species, Category, Datadog_score, size1, Popularity_rank1, intelligence )
+graph$Datadog_score <- as.numeric(graph$Datadog_score)
+graph$Popularity_rank1 <- as.numeric(graph$Popularity_rank1)
+```
+Sort dogs that are dumb, average, and smart. 
+```{r}
+graph$intelligence[graph$intelligence == "Above average"] <- "Average"
+graph$intelligence[graph$intelligence == "Brightest"] <- "Smart"
+graph$intelligence[graph$intelligence == "Excellent"] <- "Smart"
+
+
+graph$intelligence[graph$intelligence == "Fair"] <- "Dumb"
+graph$intelligence[graph$intelligence == "Average"] <- "Average"
+graph$intelligence[graph$intelligence == "Lowest"] <- "Dumb"
+
+#Set as factor.
+graph$intelligence <- factor(graph$intelligence, levels = c("Dumb", "Average", "Smart"))
+graph$size1 <- factor(graph$size1, levels = c("small", "medium", "large"))
+
+```
+
+```{r}
+g <- graph %>%
+  ggplot(aes(x = Datadog_score, y = Popularity_rank1, shape = intelligence, color = Category ,label = Species, size = size1)) + geom_point(na.rm = TRUE, alpha = 0.4)+ labs(x = "Datadog Score", y = "Popularity Score", shape = "Intelligence", size = "Size", title = "Best in Show: The Ultimate Data Dog")
+
+# have x and y line that creates boundaries at the mean values. This is so we can distinguish between above average and below.  
+g <- g + geom_hline(yintercept=median(graph$Popularity_rank1), color = "black")+ geom_vline(xintercept=median(graph$Datadog_score), color = "black")+ theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+# make the text ledgible and not to clustered.
+g <- g + xlim(2.25, 4.0)+ geom_text(check_overlap = TRUE, size = 3, hjust = 0, nudge_x = 0.05, na.rm = TRUE)+ xlim(1.75, 4.0)+ ylim(0, 160)
+g <- g + annotate(geom="text", x=3.75, y=159, label="Fan Favorite", color="black", fontface =2)+annotate(geom="text", x=1.83, y=0, label="Ignored :(", color="black", fontface =2)+annotate(geom="text", x=1.83, y=159, label="Overrated", color="black", fontface =2)+annotate(geom="text", x=3.75, y=0, label="Hidden Gems", color="black", fontface =2)
+g
+```
+
+This graphic contains: 
+
+-breed of dog
+
+-type of dog: herding, hound, non-sporting, sporting, terrier, toy, working. 
+
+-size of dog: small, medium, large
+
+-datadog score 
+
+-popularity score
+
+-intelligence of the dog: Dumb, Average, Smart
+
+-appropriate legends
+
+
+The labels for each quadrant give a relative idea of the dogs that are in each quadrant. I thought the best way to set the two intercept lines was to split them up by the median popularity score (y-line) and median Datadog score (x-line) in order to get an realistic distribution and better looking chart. Affenpinscher, Welsh Springer Spaniel and Bedlington Terrier look to be the favorites, while German Shepards and Rottweilers seem to be lagging and ignored. 
+
+
+Check AS*
